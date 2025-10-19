@@ -32,6 +32,7 @@ class ExpiringCachePerKey<K, V>(
 
     private val hits = AtomicLong(0)
     private val misses = AtomicLong(0)
+    private val evictions = AtomicLong(0)
     private val sizeCounter = AtomicInteger(0)
 
     @Volatile
@@ -43,6 +44,7 @@ class ExpiringCachePerKey<K, V>(
     suspend fun put(key: K, value: V, ttl: Duration = defaultTtl) {
         val now = clockMillis()
         val expiresAt = now + ttl.inWholeMilliseconds
+
         mutex.withLock {
             val wasPresent = map.containsKey(key)
             map[key] = CacheEntry(value, expiresAt)
@@ -60,6 +62,7 @@ class ExpiringCachePerKey<K, V>(
             if (isExpired(entry)) {
                 map.remove(key)
                 sizeCounter.decrementAndGet()
+                evictions.incrementAndGet()
                 misses.incrementAndGet()
                 return null
             }
@@ -73,30 +76,38 @@ class ExpiringCachePerKey<K, V>(
         ttl: Duration = defaultTtl,
         compute: suspend () -> V
     ): V {
+        // POPRAWKA: Trzymaj deferred poza lockiem
+        val deferredToAwait: CompletableDeferred<V>?
+
         mutex.withLock {
             val entry = map[key]
             if (entry != null && !isExpired(entry)) {
                 hits.incrementAndGet()
                 return entry.value
             }
+
             if (entry != null && isExpired(entry)) {
                 map.remove(key)
                 sizeCounter.decrementAndGet()
+                evictions.incrementAndGet()
             }
 
             val waiting = inFlight[key]
             if (waiting != null) {
                 misses.incrementAndGet()
-                return waiting.await()
+                deferredToAwait = waiting
+            } else {
+                val deferred = CompletableDeferred<V>()
+                inFlight[key] = deferred
+                deferredToAwait = null
             }
-
-            val deferred = CompletableDeferred<V>()
-            inFlight[key] = deferred
         }
 
-        val deferred = mutex.withLock { inFlight[key]!! }
+        if (deferredToAwait != null) {
+            return deferredToAwait.await()
+        }
 
-        try {
+        val result = try {
             val newValue = compute()
             val expiresAt = clockMillis() + ttl.inWholeMilliseconds
 
@@ -104,19 +115,23 @@ class ExpiringCachePerKey<K, V>(
                 val wasPresent = map.containsKey(key)
                 map[key] = CacheEntry(newValue, expiresAt)
                 if (!wasPresent) sizeCounter.incrementAndGet()
-            }
 
-            deferred.complete(newValue)
-            misses.incrementAndGet()
-            return newValue
-        } catch (e: Throwable) {
-            deferred.completeExceptionally(e)
-            throw e
-        } finally {
-            mutex.withLock {
+                // Complete deferred
+                inFlight[key]?.complete(newValue)
                 inFlight.remove(key)
             }
+
+            misses.incrementAndGet()
+            newValue
+        } catch (e: Throwable) {
+            mutex.withLock {
+                inFlight[key]?.completeExceptionally(e)
+                inFlight.remove(key)
+            }
+            throw e
         }
+
+        return result
     }
 
     fun startCleanup(scope: CoroutineScope) {
@@ -128,14 +143,15 @@ class ExpiringCachePerKey<K, V>(
                     delay(cleanupInterval)
                     cleanupExpired()
                 }
-            } catch (e: CancellationException) {
-                // graceful stop
+            } catch (_: CancellationException) {
             }
         }.also { it.start() }
     }
 
     private suspend fun cleanupExpired() {
         val now = clockMillis()
+        var evictedCount = 0
+
         mutex.withLock {
             val iterator = map.entries.iterator()
             while (iterator.hasNext()) {
@@ -143,8 +159,13 @@ class ExpiringCachePerKey<K, V>(
                 if (now > entry.expiresAtMillis) {
                     iterator.remove()
                     sizeCounter.decrementAndGet()
+                    evictedCount++
                 }
             }
+        }
+
+        if (evictedCount > 0) {
+            evictions.addAndGet(evictedCount.toLong())
         }
     }
 
@@ -153,13 +174,20 @@ class ExpiringCachePerKey<K, V>(
         val m = misses.get()
         val total = h + m
         val hitRate = if (total == 0L) 0.0 else h.toDouble() / total.toDouble()
-        return CacheStats(sizeCounter.get(), h, m, hitRate)
+        return CacheStats(
+            size = sizeCounter.get(),
+            hits = h,
+            misses = m,
+            hitRate = hitRate,
+            evictions = evictions.get()
+        )
     }
 
     suspend fun clear() {
         mutex.withLock {
             map.clear()
             sizeCounter.set(0)
+
             for ((_, deferred) in inFlight) {
                 deferred.cancel(CancellationException("Cache cleared"))
             }
