@@ -1,4 +1,4 @@
-package model
+package rk.powermilk.cache
 
 data class CacheStats(
     val size: Int,
