@@ -40,8 +40,6 @@ class ExpiringCachePerKey<K, V>(
     private fun isExpired(entry: CacheEntry<V>): Boolean =
         clockMillis() > entry.expiresAtMillis
 
-    // region Core operations
-
     suspend fun put(key: K, value: V, ttl: Duration = defaultTtl) {
         val now = clockMillis()
         val expiresAt = now + ttl.inWholeMilliseconds
@@ -121,10 +119,6 @@ class ExpiringCachePerKey<K, V>(
         }
     }
 
-    // endregion
-
-    // region Cleanup and stats
-
     fun startCleanup(scope: CoroutineScope) {
         cleanupJob?.cancel()
 
@@ -177,6 +171,4 @@ class ExpiringCachePerKey<K, V>(
         cleanupJob?.cancel()
         cleanupJob = null
     }
-
-    // endregion
 }
