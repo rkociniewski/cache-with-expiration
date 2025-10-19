@@ -18,8 +18,8 @@ import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 
 class ExpiringCache<K, V>(
-    private val expirationTime: Duration = 5.toDuration(DurationUnit.MINUTES),
-    private val cleanupInterval: Duration = 1.toDuration(DurationUnit.MINUTES),
+    private val expirationTime: Duration = 50.toDuration(DurationUnit.MILLISECONDS),
+    private val cleanupInterval: Duration = 10.toDuration(DurationUnit.MILLISECONDS),
     // clock returns current time in millis; injectable for tests
     private val clockMillis: () -> Long = { System.currentTimeMillis() }
 ) {
@@ -183,7 +183,7 @@ class ExpiringCache<K, V>(
         val m = misses.get()
         val t = h + m
         val hitRate = if (t == 0L) 0.0 else h.toDouble() / t.toDouble()
-        return CacheStats(size = sizeCounter.get(), hits = h, misses = m, hitRate = hitRate)
+        return CacheStats(sizeCounter.get(), h, m, hitRate)
     }
 
     /**
