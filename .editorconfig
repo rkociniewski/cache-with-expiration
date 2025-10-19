@@ -1,0 +1,61 @@
+# Top-most EditorConfig file
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+tab_width = 4
+max_line_length = 120
+trim_trailing_whitespace = true
+
+# IntelliJ / Kotlin defaults
+ij_formatter_off_tag = @formatter:off
+ij_formatter_on_tag = @formatter:on
+ij_formatter_tags_enabled = false
+
+[*.{kt,kts}]
+# Follow official Kotlin style
+ij_kotlin_code_style_defaults = KOTLIN_OFFICIAL
+# Indentation and wrapping
+ij_kotlin_continuation_indent_size = 4
+ij_kotlin_allow_trailing_comma = false
+ij_kotlin_call_parameters_wrap = on_every_item
+ij_kotlin_method_parameters_wrap = on_every_item
+# Imports
+ij_kotlin_name_count_to_use_star_import = 2147483647
+ij_kotlin_name_count_to_use_star_import_for_members = 2147483647
+ij_kotlin_imports_layout = *, java.**, javax.**, kotlin.**, ^
+# Spaces
+ij_kotlin_space_after_comma = true
+ij_kotlin_space_before_comma = false
+ij_kotlin_spaces_around_assignment_operators = true
+ij_kotlin_spaces_around_logical_operators = true
+ij_kotlin_spaces_around_equality_operators = true
+ij_kotlin_spaces_around_function_type_arrow = true
+ij_kotlin_spaces_around_when_arrow = true
+# Comments
+ij_kotlin_line_comment_add_space = true
+
+[*.{md,markdown}]
+ij_markdown_force_one_space_after_blockquote_symbol = true
+ij_markdown_force_one_space_after_header_symbol = true
+ij_markdown_force_one_space_after_list_bullet = true
+ij_markdown_force_one_space_between_words = true
+ij_markdown_format_tables = true
+ij_markdown_insert_quote_arrows_on_wrap = true
+ij_markdown_keep_indents_on_empty_lines = false
+ij_markdown_keep_line_breaks_inside_text_blocks = true
+ij_markdown_max_lines_around_block_elements = 1
+ij_markdown_max_lines_around_header = 1
+ij_markdown_max_lines_between_paragraphs = 1
+ij_markdown_min_lines_around_block_elements = 1
+ij_markdown_min_lines_around_header = 1
+ij_markdown_min_lines_between_paragraphs = 1
+ij_markdown_wrap_text_if_long = true
+ij_markdown_wrap_text_inside_blockquotes = true
+
+[*.{yml,yaml}]
+indent_size = 2
