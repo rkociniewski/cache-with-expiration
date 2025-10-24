@@ -1,0 +1,55 @@
+# Reusable workflow for build operations
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      run_tests:
+        description: 'Whether to run tests'
+        required: false
+        default: true
+        type: boolean
+      build_release:
+        description: 'Whether to build a release version'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  prod-check:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout code
+        uses: actions/checkout@v5
+
+      -
+        name: Set up JDK 21
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      -
+        name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      -
+        name: Final build and lint
+        run: ./gradlew clean build detekt
+
+      -
+        name: Check JaCoCo coverage
+        run: ./gradlew coverage
+
+      -
+        name: Generate JaCoCo coverage report
+        run: ./gradlew jacocoTestReport
+
+      -
+        name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: build/reports/jacoco/test/jacocoTestReport.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: rkociniewski/cache-with-expiration

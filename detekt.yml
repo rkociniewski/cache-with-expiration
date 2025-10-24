@@ -548,9 +548,11 @@ style:
   DoubleNegativeLambda:
     active: false
     negativeFunctions:
-      - reason: 'Use `takeIf` instead.'
+      -
+        reason: 'Use `takeIf` instead.'
         value: 'takeUnless'
-      - reason: 'Use `all` instead.'
+      -
+        reason: 'Use `all` instead.'
         value: 'none'
     negativeFunctionNameParts:
       - 'not'
@@ -569,28 +571,38 @@ style:
   ForbiddenAnnotation:
     active: false
     annotations:
-      - reason: 'it is a java annotation. Use `Suppress` instead.'
+      -
+        reason: 'it is a java annotation. Use `Suppress` instead.'
         value: 'java.lang.SuppressWarnings'
-      - reason: 'it is a java annotation. Use `kotlin.Deprecated` instead.'
+      -
+        reason: 'it is a java annotation. Use `kotlin.Deprecated` instead.'
         value: 'java.lang.Deprecated'
-      - reason: 'it is a java annotation. Use `kotlin.annotation.MustBeDocumented` instead.'
+      -
+        reason: 'it is a java annotation. Use `kotlin.annotation.MustBeDocumented` instead.'
         value: 'java.lang.annotation.Documented'
-      - reason: 'it is a java annotation. Use `kotlin.annotation.Target` instead.'
+      -
+        reason: 'it is a java annotation. Use `kotlin.annotation.Target` instead.'
         value: 'java.lang.annotation.Target'
-      - reason: 'it is a java annotation. Use `kotlin.annotation.Retention` instead.'
+      -
+        reason: 'it is a java annotation. Use `kotlin.annotation.Retention` instead.'
         value: 'java.lang.annotation.Retention'
-      - reason: 'it is a java annotation. Use `kotlin.annotation.Repeatable` instead.'
+      -
+        reason: 'it is a java annotation. Use `kotlin.annotation.Repeatable` instead.'
         value: 'java.lang.annotation.Repeatable'
-      - reason: 'Kotlin does not support @Inherited annotation, see https://youtrack.jetbrains.com/issue/KT-22265'
+      -
+        reason: 'Kotlin does not support @Inherited annotation, see https://youtrack.jetbrains.com/issue/KT-22265'
         value: 'java.lang.annotation.Inherited'
   ForbiddenComment:
     active: true
     comments:
-      - reason: 'Forbidden FIXME todo marker in comment, please fix the problem.'
+      -
+        reason: 'Forbidden FIXME todo marker in comment, please fix the problem.'
         value: 'FIXME:'
-      - reason: 'Forbidden STOPSHIP todo marker in comment, please address the problem before shipping the code.'
+      -
+        reason: 'Forbidden STOPSHIP todo marker in comment, please address the problem before shipping the code.'
         value: 'STOPSHIP:'
-      - reason: 'Forbidden TODO todo marker in comment, please do the changes.'
+      -
+        reason: 'Forbidden TODO todo marker in comment, please do the changes.'
         value: 'TODO:'
     allowedPatterns: ''
   ForbiddenImport:
@@ -600,9 +612,11 @@ style:
   ForbiddenMethodCall:
     active: false
     methods:
-      - reason: 'print does not allow you to configure the output stream. Use a logger instead.'
+      -
+        reason: 'print does not allow you to configure the output stream. Use a logger instead.'
         value: 'kotlin.io.print'
-      - reason: 'println does not allow you to configure the output stream. Use a logger instead.'
+      -
+        reason: 'println does not allow you to configure the output stream. Use a logger instead.'
         value: 'kotlin.io.println'
   ForbiddenSuppress:
     active: false
@@ -687,7 +701,7 @@ style:
     active: false
   ReturnCount:
     active: true
-    max: 2
+    max: 3
     excludedFunctions:
       - 'equals'
     excludeLabeled: false

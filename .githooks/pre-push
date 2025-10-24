@@ -1,0 +1,91 @@
+#!/bin/bash
+# Pre-push hook to verify version bump on main/release branches
+
+set -e
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+# Get the branch being pushed to
+while read local_ref local_sha remote_ref remote_sha; do
+    BRANCH_NAME=$(echo "$remote_ref" | sed 's/refs\/heads\///')
+
+    # Only check main and release branches
+    if [[ ! $BRANCH_NAME =~ ^(main|release/) ]]; then
+        continue
+    fi
+
+    echo -e "${YELLOW}🔍 Checking version bump for $BRANCH_NAME...${NC}"
+
+    # Get version info from current commit
+    if [ -f "build.gradle.kts" ]; then
+        BUILD_FILE="build.gradle.kts"
+    else
+        echo -e "${YELLOW}⚠️  No build.gradle.kts file found, skipping version check${NC}"
+        continue
+    fi
+    # Try double quotes first
+    CURRENT_VERSION_NAME=$(grep -E 'version\s*=\s*"[^"]+"' "$BUILD_FILE" | grep -oE '"[^"]+"' | tr -d '"' | head -1)
+
+    # Fallback to single quotes if not found
+    if [ -z "$CURRENT_VERSION_NAME" ]; then
+        CURRENT_VERSION_NAME=$(grep -E "version\s*=\s*'[^']+'" "$BUILD_FILE" | grep -oE "'[^']+'" | tr -d "'" | head -1)
+    fi
+
+    # Get version from remote (if exists)
+    if git rev-parse "origin/$BRANCH_NAME" >/dev/null 2>&1; then
+        REMOTE_BUILD_CONTENT=$(git show "origin/$BRANCH_NAME:$BUILD_FILE" 2>/dev/null || echo "")
+
+        if [ -n "$REMOTE_BUILD_CONTENT" ]; then
+
+            # Try double quotes first
+            REMOTE_VERSION_NAME=$(echo "$REMOTE_BUILD_CONTENT" | grep -E 'version\s*=\s*"[^"]+"' | grep -oE '"[^"]+"' | tr -d '"' | head -1)
+
+            # Fallback to single quotes
+            if [ -z "$REMOTE_VERSION_NAME" ]; then
+                REMOTE_VERSION_NAME=$(echo "$REMOTE_BUILD_CONTENT" | grep -E "version\s*=\s*'[^']+'" | grep -oE "'[^']+'" | tr -d "'" | head -1)
+            fi
+
+            echo "Remote version: $REMOTE_VERSION_NAME"
+            echo "Local version:  $CURRENT_VERSION_NAME"
+            echo ""
+
+            # Check version
+            if [ "$CURRENT_VERSION_NAME" == "$REMOTE_VERSION_NAME" ]; then
+                echo -e "${RED}❌ ERROR: version was not changed!${NC}"
+                echo "   Version: $CURRENT_VERSION_NAME"
+                echo ""
+                echo "Please bump version in $BUILD_FILE"
+
+                # Suggest next version based on current
+                if [[ $CURRENT_VERSION_NAME =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+                    MAJOR="${BASH_REMATCH[1]}"
+                    MINOR="${BASH_REMATCH[2]}"
+                    PATCH="${BASH_REMATCH[3]}"
+                    NEXT_PATCH=$((PATCH + 1))
+                    echo "Suggested: $MAJOR.$MINOR.$NEXT_PATCH"
+                fi
+                exit 1
+            fi
+
+            echo -e "${GREEN}✅ version updated${NC}"
+            echo "   $REMOTE_VERSION_NAME → $CURRENT_VERSION_NAME"
+            echo ""
+            echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+            echo -e "${GREEN}✅ Version check passed${NC}"
+            echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        else
+            echo -e "${YELLOW}⚠️  Could not read remote build file${NC}"
+        fi
+    else
+        echo -e "${YELLOW}⚠️  No remote branch found, skipping comparison${NC}"
+    fi
+
+    echo ""
+done
+
+exit 0

@@ -1,0 +1,27 @@
+name: Sync Labels
+
+on:
+  schedule:
+    -
+      cron: '0 12 * * 1'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: .github/labels.yml
+
+      -
+        name: Sync labels
+        uses: EndBug/label-sync@v2
+        with:
+          config-file: .github/labels.yml
+          token: ${{ secrets.GITHUB_TOKEN }}
+          delete-other-labels: false
