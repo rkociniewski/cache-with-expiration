@@ -1,0 +1,29 @@
+#!/bin/bash
+# Post-commit hook to check version bump on main/release branches
+
+BRANCH_NAME=$(git symbolic-ref --short HEAD 2>/dev/null)
+
+# Only check on important branches
+if [[ ! $BRANCH_NAME =~ ^(main|release/) ]]; then
+    exit 0
+fi
+
+echo ""
+echo "⚠️  You committed to $BRANCH_NAME"
+
+# Check if version files were modified
+if git diff HEAD~1 HEAD --name-only | grep -qE 'build.gradle(\.kts)?$'; then
+    echo "✅ Build file was modified (version might be updated)"
+else
+    echo "❌ WARNING: Build file was NOT modified"
+    echo "   Did you remember to bump version?"
+    echo ""
+    echo "   Current version info:"
+
+    if [ -f "build.gradle.kts" ]; then
+        grep -E 'version' build.gradle.kts | head -2
+    fi
+    echo ""
+fi
+
+exit 0

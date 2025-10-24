@@ -48,7 +48,7 @@ class InMemoryCache<K, V>(
                     delay(cleanupInterval)
                     cleanup()
                 }
-            } catch (e: CancellationException) {
+            } catch (_: CancellationException) {
                 // graceful exit
             }
         }

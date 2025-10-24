@@ -1,0 +1,13 @@
+labels:
+  -
+    name: dependencies
+    color: 41a786
+    description: Dependencies for dependabot
+  -
+    name: gradle
+    color: 614476
+    description: Gradle update for dependabot
+  -
+    name: github-actions
+    color: 0c2fdb
+    description: Github Actions for dependabot

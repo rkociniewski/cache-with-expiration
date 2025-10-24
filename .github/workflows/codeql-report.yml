@@ -1,0 +1,175 @@
+name: CodeQL Security Report
+
+on:
+  schedule:
+    -
+      cron: '0 12 * * 1'
+  workflow_dispatch:
+
+permissions:
+  security-events: read
+  issues: write
+  contents: read
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      -
+        name: Checkout repository
+        uses: actions/checkout@v5
+
+      -
+        name: Get CodeQL alerts
+        id: get-alerts
+        uses: actions/github-script@v8
+        with:
+          script: |
+            // Get all open code scanning alerts
+            const { data: alerts } = await github.rest.codeScanning.listAlertsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              tool_name: 'CodeQL'
+            });
+
+            // Group by severity
+            const critical = alerts.filter(a => a.rule.severity === 'error' && a.rule.security_severity_level === 'critical');
+            const high = alerts.filter(a => a.rule.severity === 'error' && a.rule.security_severity_level === 'high');
+            const medium = alerts.filter(a => a.rule.severity === 'warning');
+            const low = alerts.filter(a => a.rule.severity === 'note' || a.rule.severity === 'recommendation');
+
+            // Generate summary
+            const summary = {
+              total: alerts.length,
+              critical: critical.length,
+              high: high.length,
+              medium: medium.length,
+              low: low.length,
+              criticalAlerts: critical.slice(0, 5),  // Top 5
+              highAlerts: high.slice(0, 5)
+            };
+
+            core.setOutput('summary', JSON.stringify(summary));
+            return summary;
+
+      -
+        name: Create or update security issue
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const summary = JSON.parse('${{ steps.get-alerts.outputs.summary }}');
+
+            let message = `# 🔒 Weekly CodeQL Security Report\n\n`;
+            message += `**Report Date**: ${new Date().toLocaleDateString()}\n\n`;
+
+            // Overall summary
+            message += `## 📊 Summary\n\n`;
+            message += `| Severity | Count |\n`;
+            message += `|----------|-------|\n`;
+            message += `| 🔴 Critical | ${summary.critical} |\n`;
+            message += `| 🟠 High | ${summary.high} |\n`;
+            message += `| 🟡 Medium | ${summary.medium} |\n`;
+            message += `| 🟢 Low | ${summary.low} |\n`;
+            message += `| **Total** | **${summary.total}** |\n\n`;
+
+            // Status
+            if (summary.total === 0) {
+              message += `✅ **No open security alerts!** Great job team! 🎉\n\n`;
+            } else if (summary.critical > 0) {
+              message += `🚨 **Action Required**: ${summary.critical} critical issue(s) need immediate attention!\n\n`;
+            } else if (summary.high > 0) {
+              message += `⚠️ **Attention Needed**: ${summary.high} high severity issue(s) should be addressed soon.\n\n`;
+            } else {
+              message += `📝 **Review Needed**: ${summary.total} issue(s) to review and address.\n\n`;
+            }
+
+            // Critical alerts details
+            if (summary.criticalAlerts.length > 0) {
+              message += `## 🔴 Critical Issues (Top 5)\n\n`;
+              summary.criticalAlerts.forEach((alert, i) => {
+                message += `${i + 1}. **${alert.rule.description}**\n`;
+                message += `   - File: \`${alert.most_recent_instance.location.path}\`\n`;
+                message += `   - Line: ${alert.most_recent_instance.location.start_line}\n`;
+                message += `   - [View Alert](${alert.html_url})\n\n`;
+              });
+            }
+
+            // High alerts details
+            if (summary.highAlerts.length > 0) {
+              message += `## 🟠 High Severity Issues (Top 5)\n\n`;
+              summary.highAlerts.forEach((alert, i) => {
+                message += `${i + 1}. **${alert.rule.description}**\n`;
+                message += `   - File: \`${alert.most_recent_instance.location.path}\`\n`;
+                message += `   - [View Alert](${alert.html_url})\n\n`;
+              });
+            }
+
+            // Action items
+            message += `## 🎯 Action Items\n\n`;
+            if (summary.critical > 0) {
+              message += `- [ ] Review and fix all ${summary.critical} critical issue(s) ASAP\n`;
+            }
+            if (summary.high > 0) {
+              message += `- [ ] Address ${summary.high} high severity issue(s) this week\n`;
+            }
+            if (summary.medium > 0) {
+              message += `- [ ] Triage ${summary.medium} medium severity issue(s)\n`;
+            }
+            message += `- [ ] Review dismissed alerts for false positives\n`;
+            message += `- [ ] Update security documentation if needed\n\n`;
+
+            // Links
+            message += `## 🔗 Links\n\n`;
+            message += `- [View All Alerts](https://github.com/${context.repo.owner}/${context.repo.repo}/security/code-scanning)\n`;
+            message += `- [CodeQL Documentation](CODEQL.md)\n`;
+            message += `- [Security Policy](SECURITY.md)\n\n`;
+
+            message += `---\n`;
+            message += `*This report is generated automatically every Monday. To disable, edit \`.github/workflows/codeql-report.yml\`*\n`;
+
+            // Find existing issue
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'codeql-report,security'
+            });
+
+            if (issues.data.length > 0) {
+              // Update existing issue
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues.data[0].number,
+                body: message
+              });
+
+              // Add comment about update
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues.data[0].number,
+                body: `📊 Report updated for week of ${new Date().toLocaleDateString()}`
+              });
+            } else if (summary.total > 0) {
+              // Create new issue only if there are alerts
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `🔒 CodeQL Security Report - ${new Date().toLocaleDateString()}`,
+                body: message,
+                labels: ['codeql-report', 'security', summary.critical > 0 ? 'urgent' : 'needs-review']
+              });
+            }
+
+      -
+        name: Notify team (optional)
+        if: steps.get-alerts.outputs.summary.critical > 0
+        uses: actions/github-script@v8
+        with:
+          script: |
+            // Send notification to team (customize as needed)
+            console.log('🚨 Critical security issues detected! Team should be notified.');
+            // Add Slack/Teams notification here if configured

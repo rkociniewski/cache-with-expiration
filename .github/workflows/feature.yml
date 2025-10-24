@@ -1,0 +1,21 @@
+name: Feature Branch Build
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+
+concurrency:
+  group: feature-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+    with:
+      run_tests: true
+      build_release: false

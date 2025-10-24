@@ -1,0 +1,145 @@
+name: CodeQL Security Analysis
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'release/**'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+  pull_request:
+    branches:
+      - main
+      - develop
+      - 'release/**'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  schedule:
+    -
+      cron: '0 12 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+  pull-requests: read
+
+jobs:
+  analyze:
+    name: Analyze Code
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'java-kotlin' ]
+
+    steps:
+      -
+        name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      -
+        name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
+      -
+        name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          cache-read-only: false
+
+      -
+        name: Make gradlew executable
+        run: chmod +x gradlew
+
+      # Initialize CodeQL tools
+      -
+        name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          # Queries to run: default, security-extended, security-and-quality
+          queries: security-extended
+          # Custom queries (optional)
+          config-file: .github/codeql/codeql-config.yml
+
+      # Build the project for CodeQL analysis
+      # CodeQL needs to see how code is used
+      -
+        name: Build project
+        run: |
+          ./gradlew compileKotlin \
+            --no-daemon \
+            --no-build-cache \
+            --stacktrace \
+            -x test \
+            -x detekt
+
+      # Perform CodeQL Analysis
+      -
+        name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"
+          # Upload results even if there are no findings
+          upload: true
+          # Threads for analysis (default: auto)
+          threads: 4
+          # SARIF output directory
+          output: codeql-results
+          # Used RAM
+          ram: 6144
+
+      # Upload SARIF file as artifact (optional)
+      -
+        name: Upload CodeQL results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeql-results-${{ matrix.language }}
+          path: codeql-results
+          retention-days: 30
+
+      # Post comment on PR with results summary (optional)
+      -
+        name: Comment PR with security findings
+        if: github.event_name == 'pull_request' && failure()
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const message = `## 🔒 CodeQL Security Analysis
+
+            ⚠️ **Security issues detected!**
+
+            CodeQL found potential security vulnerabilities in this PR.
+
+            📊 **View detailed results**:
+            - Go to the [Security tab](https://github.com/${{ github.repository }}/security/code-scanning)
+            - Filter by this PR or commit
+
+            **Action required**: Please review and fix security issues before merging.
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: message
+            });

@@ -71,12 +71,12 @@ class ExpiringCachePerKey<K, V>(
         }
     }
 
+    @Suppress("TooGenericExceptionCaught")
     suspend fun getOrCompute(
         key: K,
         ttl: Duration = defaultTtl,
         compute: suspend () -> V
     ): V {
-        // POPRAWKA: Trzymaj deferred poza lockiem
         val deferredToAwait: CompletableDeferred<V>?
 
         mutex.withLock {
@@ -123,7 +123,7 @@ class ExpiringCachePerKey<K, V>(
 
             misses.incrementAndGet()
             newValue
-        } catch (e: Throwable) {
+        } catch (e: Exception) {
             mutex.withLock {
                 inFlight[key]?.completeExceptionally(e)
                 inFlight.remove(key)

@@ -72,6 +72,7 @@ class ExpiringCache<K, V>(
         }
     }
 
+    @Suppress("TooGenericExceptionCaught")
     suspend fun getOrCompute(
         key: K,
         scope: CoroutineScope,
@@ -126,7 +127,7 @@ class ExpiringCache<K, V>(
                 }
                 deferred.cancel(e)
                 // NIE rethrow - deferred już wie o cancellation
-            } catch (e: Throwable) {
+            } catch (e: Exception) {
                 mutex.withLock {
                     inFlight.remove(key)
                 }

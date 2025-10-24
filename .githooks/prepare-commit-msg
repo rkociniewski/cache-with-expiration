@@ -1,0 +1,23 @@
+#!/bin/bash
+# Adds branch name to commit message and checks version bump
+
+COMMIT_MSG_FILE=$1
+COMMIT_SOURCE=$2
+
+# Only run for normal commits (not merge, squash, etc.)
+if [ -z "$COMMIT_SOURCE" ]; then
+    # Get current branch
+    BRANCH_NAME=$(git symbolic-ref --short HEAD 2>/dev/null)
+
+    # Add branch name to commit message if it's a feature/fix/etc branch
+    if [[ $BRANCH_NAME =~ ^(feature|fix|hotfix|bugfix)/ ]]; then
+        ISSUE=$(echo "$BRANCH_NAME" | grep -oE '[A-Z]+-[0-9]+' | head -1)
+        if [ -n "$ISSUE" ]; then
+            # Prepend issue number if not already in message
+            if ! grep -q "$ISSUE" "$COMMIT_MSG_FILE"; then
+                sed -i.bak "1s/^/[$ISSUE] /" "$COMMIT_MSG_FILE"
+                rm "${COMMIT_MSG_FILE}.bak"
+            fi
+        fi
+    fi
+fi

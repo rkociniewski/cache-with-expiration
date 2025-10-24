@@ -1,0 +1,188 @@
+name: Pull Request Validation
+
+on:
+  pull_request:
+    types: [ opened, synchronize, reopened ]
+    branches:
+      - develop
+      - main
+      - 'release/**'
+      - 'hotfix/**'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+    with:
+      run_tests: true
+      build_release: false
+
+  pr-validation:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      -
+        name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      -
+        name: Validate PR title (optional)
+        continue-on-error: true
+        uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+            revert
+            update
+            add
+            remove
+            improve
+          requireScope: false
+          validateSingleCommit: false
+          ignoreLabels: |
+            skip-changelog
+
+      -
+        name: Check for merge conflicts
+        run: |
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          if ! git merge-tree $(git merge-base HEAD origin/${{ github.event.pull_request.base.ref }}) HEAD origin/${{ github.event.pull_request.base.ref }} | grep -q "^<<<<<< "; then
+            echo "✅ No merge conflicts detected"
+          else
+            echo "❌ Merge conflicts detected"
+            exit 1
+          fi
+
+  pr-comments:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event.action == 'opened'
+
+    steps:
+      -
+        name: Comment PR based on target branch
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const targetBranch = context.payload.pull_request.base.ref;
+            const sourceBranch = context.payload.pull_request.head.ref;
+            let message = '';
+            let emoji = '📝';
+
+            if (targetBranch === 'main') {
+              emoji = '⚠️';
+              message = `**Warning**: You are merging into the **production branch** (\`main\`).
+
+              **Pre-merge checklist:**
+              - [ ] All tests are passing
+              - [ ] Code has been reviewed by at least 2 reviewers
+              - [ ] QA has approved the changes
+              - [ ] Release notes have been updated
+              - [ ] Version has been bumped appropriately`;
+            } else if (targetBranch === 'develop') {
+              emoji = '📝';
+              message = `Merging into the **development branch** (\`develop\`).
+
+              Please ensure:
+              - [ ] All tests pass before merging
+              - [ ] Code follows project conventions
+              - [ ] No breaking changes without team discussion`;
+            } else if (targetBranch.startsWith('release/')) {
+              emoji = '🚀';
+              message = `This PR targets a **release branch** (\`${targetBranch}\`).
+
+              Please verify:
+              - [ ] All intended features for this release are included
+              - [ ] Version number is correct
+              - [ ] Release notes are complete
+              - [ ] No new features (bug fixes only)`;
+            } else if (targetBranch.startsWith('hotfix/')) {
+              emoji = '🔥';
+              message = `**Hotfix PR** detected targeting \`${targetBranch}\`.
+
+              **Important reminders:**
+              - [ ] This is a critical fix only
+              - [ ] After merging to \`main\`, also merge to \`develop\`
+              - [ ] Update version number (patch increment)
+              - [ ] Notify the team about the hotfix`;
+            }
+
+            if (message) {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `${emoji} ${message}`
+              });
+            }
+
+  size-label:
+    runs-on: ubuntu-latest
+    if: github.event.action == 'opened' || github.event.action == 'synchronize'
+
+    steps:
+      -
+        name: Add size label
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            const additions = pr.additions;
+            const deletions = pr.deletions;
+            const changes = additions + deletions;
+
+            let size = 'XS';
+            if (changes > 500) size = 'XL';
+            else if (changes > 200) size = 'L';
+            else if (changes > 100) size = 'M';
+            else if (changes > 30) size = 'S';
+
+            const labels = ['size/XS', 'size/S', 'size/M', 'size/L', 'size/XL'];
+            const currentLabels = pr.labels.map(l => l.name);
+
+            // Remove old size labels
+            for (const label of labels) {
+              if (currentLabels.includes(label) && label !== `size/${size}`) {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  name: label
+                });
+              }
+            }
+
+            // Add new size label
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              labels: [`size/${size}`]
+            });
