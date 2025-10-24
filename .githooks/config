@@ -1,0 +1,81 @@
+#!/bin/bash
+# Git hooks configuration
+# Customize exclusions and patterns here
+
+# Debug statement exclusions
+# Files matching these patterns will be excluded from debug statement checks
+DEBUG_EXCLUDE_PATTERNS=(
+    "Logger"           # Any file with Logger in name (AppLogger.kt, CustomLogger.kt)
+    "Log\.kt"          # Log.kt files
+    "Test\.kt"         # Test files
+    "test/"            # Test directories
+    "debug/"           # Debug directories
+    "DebugUtils"       # Debug utility files
+)
+
+# Secret detection exclusions
+# Files matching these patterns will be excluded from secret detection
+SECRET_EXCLUDE_PATTERNS=(
+    "\.md$"            # Markdown files
+    "\.txt$"           # Text files
+    "test/"            # Test directories
+    "Test\.kt"         # Test files
+    "spec\."           # Spec files
+    "example/"         # Example directories
+    "sample/"          # Sample directories
+    "README"           # README files
+    "CHANGELOG"        # Changelog files
+    "\.template"       # Template files
+)
+
+# Large file size limit (in bytes)
+MAX_FILE_SIZE=5242880  # 5MB
+
+# Secret patterns to detect
+SECRET_PATTERNS=(
+    'api[_-]?key\s*=\s*["\047][^"\047]{10,}'
+    'secret\s*=\s*["\047][^"\047]{10,}'
+    'password\s*=\s*["\047][^"\047]{5,}'
+    'token\s*=\s*["\047][^"\047]{10,}'
+    'aws[_-]?access[_-]?key'
+    'private[_-]?key'
+    'client[_-]?secret'
+    'auth[_-]?token'
+)
+
+# Debug statement patterns to detect
+DEBUG_PATTERNS=(
+    'System\.out\.println'
+    'Log\.[dev]'              # Log.d(), Log.e(), Log.v()
+    'console\.log'
+    'debugger'
+    'TODO'
+    'FIXME'
+)
+
+# Optional: Add custom file extensions to check
+CODE_EXTENSIONS='(kt|java)'
+KOTLIN_EXTENSIONS='kt'
+
+# Optional: ktlint/detekt configuration
+RUN_KTLINT=true
+RUN_DETEKT=false  # Set to true to enforce detekt
+
+# Optional: Block or warn on issues
+BLOCK_ON_DEBUG_STATEMENTS=false   # Set to true to block commits
+BLOCK_ON_LARGE_FILES=true
+BLOCK_ON_SECRETS=true
+BLOCK_ON_MERGE_CONFLICTS=true
+
+# Optional: Custom messages
+MSG_DEBUG_WARNING="⚠️  Debug statements found. Consider removing them before committing."
+MSG_SECRET_ERROR="❌ Potential secret detected! Do NOT commit sensitive data."
+MSG_LARGE_FILE_ERROR="❌ File too large. Files over 5MB should not be committed."
+MSG_MERGE_CONFLICT_ERROR="❌ Merge conflict markers found. Please resolve conflicts first."
+
+# Optional: Skip checks based on environment variable
+# Usage: SKIP_PRE_COMMIT=1 git commit -m "..."
+ALLOW_SKIP_VAR="SKIP_PRE_COMMIT"
+
+# Optional: Verbose output
+VERBOSE=false  # Set to true for detailed logging

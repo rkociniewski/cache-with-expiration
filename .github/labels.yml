@@ -1,0 +1,18 @@
+-
+  name: 'dependencies'
+  color: '41a786'
+  description: 'Dependencies for dependabot'
+  aliases: [ ]
+
+-
+  name: 'gradle'
+  color: '614476'
+  description: 'Gradle update for dependabot'
+  aliases: [ ]
+
+-
+  name: 'github-actions'
+  color: '0c2fdb'
+  description: 'Github Actions for dependabot'
+  aliases: [ ]
+
