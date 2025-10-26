@@ -1,6 +1,6 @@
 # 🗄️ Kotlin Expiring Cache Library
 
-[![version](https://img.shields.io/badge/version-1.0.14-yellow.svg)](https://semver.org)
+[![version](https://img.shields.io/badge/version-1.0.15-yellow.svg)](https://semver.org)
 [![Awesome Kotlin Badge](https://kotlin.link/awesome-kotlin.svg)](https://github.com/KotlinBy/awesome-kotlin)
 [![Build](https://github.com/rkociniewski/cache-with-expiration/actions/workflows/main.yml/badge.svg)](https://github.com/rkociniewski/rosario/actions/workflows/main.yml)
 [![CodeQL](https://github.com/rkociniewski/cache-with-expiration/actions/workflows/codeql.yml/badge.svg)](https://github.com/rkociniewski/rosario/actions/workflows/codeql.yml)
